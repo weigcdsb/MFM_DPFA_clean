@@ -1,4 +1,4 @@
-function [delta_b, C_b] = update_deltC_HMC(delta_a, C_a, THETA_a,Z_tmp, Y_tmp, prior_tmp)
+function [delta_b, C_b] = update_deltC_HMC(delta_a, C_a, THETA_a,Z_tmp, Y_tmp, prior)
 
 % for debugging
 % delta_a = delt_fit(:,g-1);

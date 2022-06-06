@@ -91,7 +91,7 @@ p_trace = ones(nClus, ng);
 for k = 1:nClus
     idx_tmp = find(Lab == k);
     N_tmp = length(idx_tmp);
-    p_tmp = p_trace(k,1); 
+    p_tmp = p_trace(k,1);
     
     prior.x0 = zeros(p_tmp,1);
     prior.Q0 = eye(p_tmp);
@@ -122,12 +122,12 @@ birth_time = 1;
 alpha = 2;
 
 % AGS
-bdstart = 20;
+bdstart = 50;
 b0 = 0.1;
 b1 = 1e-3;
 
 %% MCMC
-poolobj = parpool('IdleTimeout',120);
+% poolobj = parpool('IdleTimeout',120);
 
 tic
 for g= 2:ng
@@ -137,7 +137,7 @@ for g= 2:ng
     
     THETA_tmp_in = THETA{g-1};
     THETA_tmp_out = THETA{g-1};
-    ACC_out = ACC_trace
+    ACC_tmp = ACC_trace(:,g);
     
     parfor j = 1:nClus
         obsIdx = find(Lab == j);
@@ -149,9 +149,15 @@ for g= 2:ng
         prior_tmp.SigC0 = eye(THETA_tmp_in(j).p);
         
         [THETA_tmp_out(j), acc] = update_clusParam_PG(THETA_tmp_in(j),...
-                delt_fit(obsIdx,g-1), C_fit(obsIdx,1:THETA_tmp_in(j).p,g-1),...
-                Y(obsIdx,:),R_all(obsIdx,:),prior_tmp);
-        ACC_trace(j,g) = acc;
+            delt_fit(obsIdx,g-1), C_fit(obsIdx,1:THETA_tmp_in(j).p,g-1),...
+            Y(obsIdx,:),R_all(obsIdx,:),prior_tmp);
+        ACC_tmp(j) = acc;
+    end
+    
+    THETA{g} = THETA_tmp_out;
+    ACC_trace(:,g) = ACC_tmp;
+    
+    for j = 1:nClus
         if(g > burnIn)
             RACC(j) = sum(ACC_trace(j, (burnIn+1):g))/(g - burnIn);
         end
@@ -192,43 +198,52 @@ for g= 2:ng
     
     
     % birth-death
-    
     if g > bdstart && binornd(1, exp(-b0 - b1*g)) == 1
+        
+        THETA_tmp = THETA{g};
+        C_tmp_cell = cell(nClus,1);
+        
         for j = 1:nClus
+            obsIdx = find(Lab == j);
+            C_tmp_cell{j} = C_fit(obsIdx,:,g);
+        end
+        
+        
+        parfor j = 1:nClus
             
             t_fa = 0;
             obsIdx = find(Lab == j);
             N_tmp = length(obsIdx);
             
-            
             while(t_fa < birth_time)
                 
-                mll_del = zeros(THETA{g}(j).p,1);
-                if THETA{g}(j).p > 1
-                    for kk = 1:THETA{g}(j).p
-                        colSelect = setdiff(1:THETA{g}(j).p, kk);
+                mll_del = zeros(THETA_tmp(j).p,1);
+                if THETA_tmp(j).p > 1
+                    for kk = 1:THETA_tmp(j).p
+                        colSelect = setdiff(1:THETA_tmp(j).p, kk);
                         mll_del(kk) = poiLogMarg(reshape(Y(obsIdx,:)', [], 1),...
-                            repmat(THETA{g}(j).X(colSelect,:)', N_tmp,1),...
+                            repmat(THETA_tmp(j).X(colSelect,:)', N_tmp,1),...
                             kron(delt_fit(obsIdx,g), ones(T,1)) +...
-                            repmat(THETA{g}(j).mu', N_tmp,1));
+                            repmat(THETA_tmp(j).mu', N_tmp,1));
                     end
                     
                     mll_all = poiLogMarg(reshape(Y(obsIdx,:)', [], 1),...
-                        repmat(THETA{g}(j).X', N_tmp,1),...
+                        repmat(THETA_tmp(j).X', N_tmp,1),...
                         kron(delt_fit(obsIdx,g), ones(T,1)) +...
-                        repmat(THETA{g}(j).mu', N_tmp,1));
+                        repmat(THETA_tmp(j).mu', N_tmp,1));
                 else
-                    for kk = 1:THETA{g}(j).p
-                        colSelect = setdiff(1:THETA{g}(j).p, kk);
+                    for kk = 1:THETA_tmp(j).p
+                        colSelect = setdiff(1:THETA_tmp(j).p, kk);
+                        
                         eta_tmp =...
-                            [ones(N_tmp,1) delt_fit(obsIdx,g) C_fit(obsIdx,colSelect,g)]*...
-                            [THETA{g}(j).mu ;ones(1,T) ;THETA{g}(j).X(colSelect,:)];
+                            [ones(N_tmp,1) delt_fit(obsIdx,g) C_tmp_cell{j}(:,colSelect)]*...
+                            [THETA_tmp(j).mu ;ones(1,T) ;THETA_tmp(j).X(colSelect,:)];
                         mll_del(kk) = nansum(log(poisspdf(Y(obsIdx,:),exp(eta_tmp))), 'all');
                     end
                     
                     eta_tmp =...
-                        [ones(N_tmp,1) delt_fit(obsIdx,g) C_fit(obsIdx,1:THETA{g}(j).p,g)]*...
-                        [THETA{g}(j).mu ;ones(1,T) ;THETA{g}(j).X];
+                        [ones(N_tmp,1) delt_fit(obsIdx,g) C_tmp_cell{j}(:,1:THETA_tmp(j).p)]*...
+                        [THETA_tmp(j).mu ;ones(1,T) ;THETA_tmp(j).X];
                     
                     mll_all = nansum(log(poisspdf(Y(obsIdx,:),exp(eta_tmp))), 'all');
                 end
@@ -241,20 +256,22 @@ for g= 2:ng
                 t_fa = t_fa + s;
                 
                 if(binornd(1,birth_rate/(birth_rate + delta_all)) == 1)
-                    if THETA{g}(j).p < p_max
+                    if THETA_tmp(j).p < p_max
                         % give a birth
                         disp('birth')
-                        prior.x0 = zeros(1,1);
-                        prior.Q0 = eye(1);
-                        theta_tmp = sample_prior(prior, T, 1, false);
+                        prior_tmp = prior;
                         
-                        THETA{g}(j).b = [THETA{g}(j).b; theta_tmp.b(2)];
-                        THETA{g}(j).A = diag([diag(THETA{g}(j).A);theta_tmp.A(2,2)]);
-                        THETA{g}(j).Q = diag([diag(THETA{g}(j).Q);theta_tmp.Q(2,2)]);
-                        THETA{g}(j).X = [THETA{g}(j).X; theta_tmp.X];
+                        prior_tmp.x0 = zeros(1,1);
+                        prior_tmp.Q0 = eye(1);
+                        theta_tmp = sample_prior(prior_tmp, T, 1, false);
                         
-                        C_fit(obsIdx,THETA{g}(j).p+1, g) = normrnd(0, ones(N_tmp, 1));
-                        THETA{g}(j).p = THETA{g}(j).p + 1;
+                        THETA_tmp(j).b = [THETA_tmp(j).b; theta_tmp.b(2)];
+                        THETA_tmp(j).A = diag([diag(THETA_tmp(j).A);theta_tmp.A(2,2)]);
+                        THETA_tmp(j).Q = diag([diag(THETA_tmp(j).Q);theta_tmp.Q(2,2)]);
+                        THETA_tmp(j).X = [THETA_tmp(j).X; theta_tmp.X];
+                        
+                        C_tmp_cell{j}(:,THETA_tmp(j).p+1) = normrnd(0,1, N_tmp,1);
+                        THETA_tmp(j).p = THETA_tmp(j).p + 1;
                     end
                 else
                     
@@ -263,18 +280,25 @@ for g= 2:ng
                     del_col = mnrnd(1,delta_j/delta_all);
                     
                     del_col_expand = [0 del_col];
-                    THETA{g}(j).b = THETA{g}(j).b(~del_col_expand);
-                    THETA{g}(j).A = THETA{g}(j).A(~del_col_expand, ~del_col_expand);
-                    THETA{g}(j).Q = THETA{g}(j).Q(~del_col_expand, ~del_col_expand);
-                    THETA{g}(j).X = THETA{g}(j).X(~del_col,:);
+                    THETA_tmp(j).b = THETA_tmp(j).b(~del_col_expand);
+                    THETA_tmp(j).A = THETA_tmp(j).A(~del_col_expand, ~del_col_expand);
+                    THETA_tmp(j).Q = THETA_tmp(j).Q(~del_col_expand, ~del_col_expand);
+                    THETA_tmp(j).X = THETA_tmp(j).X(~del_col,:);
                     
-                    C_tmp = 0*C_fit(obsIdx, :, g);
-                    C_tmp(:,1:(THETA{g}(j).p - 1)) = C_fit(obsIdx, ~del_col, g);
-                    C_fit(obsIdx, :, g) =  C_tmp;
-                    THETA{g}(j).p = THETA{g}(j).p - 1;
+                    C_tmp = 0*C_tmp_cell{j};
+                    C_tmp(:,1:(THETA_tmp(j).p - 1)) = C_tmp_cell{j}(:,~del_col);
+                    
+                    C_tmp_cell{j} =  C_tmp;
+                    THETA_tmp(j).p = THETA_tmp(j).p - 1;
                 end
                 
             end
+        end
+        
+        THETA{g} = THETA_tmp;
+        for j = 1:nClus
+            obsIdx = find(Lab == j);
+            C_fit(obsIdx,:,g) = C_tmp_cell{j};
         end
     end
     
