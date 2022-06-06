@@ -137,7 +137,7 @@ for g= 2:ng
     
     THETA_tmp_in = THETA{g-1};
     THETA_tmp_out = THETA{g-1};
-    ACC_tmp = ACC_trace(:,g);
+    ACC_out = ACC_trace
     
     parfor j = 1:nClus
         obsIdx = find(Lab == j);
@@ -151,13 +151,7 @@ for g= 2:ng
         [THETA_tmp_out(j), acc] = update_clusParam_PG(THETA_tmp_in(j),...
                 delt_fit(obsIdx,g-1), C_fit(obsIdx,1:THETA_tmp_in(j).p,g-1),...
                 Y(obsIdx,:),R_all(obsIdx,:),prior_tmp);
-        ACC_tmp(j) = acc;
-    end
-    
-    THETA{g} = THETA_tmp_out;
-    ACC_trace(:,g) = ACC_tmp;
-    
-    for j = 1:nClus
+        ACC_trace(j,g) = acc;
         if(g > burnIn)
             RACC(j) = sum(ACC_trace(j, (burnIn+1):g))/(g - burnIn);
         end

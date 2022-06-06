@@ -11,9 +11,11 @@ N = size(Y_tmp,1);
 T = size(Y_tmp,2);
 
 delta_b = delta_a;
+C_b = C_a;
+
 
 C_b_cell = cell(N,1);
-C_b_cell(:) = {zeros(1,size(C_a,2))};
+C_b_cell(:) = {zeros(1,)}
 
 parfor ii = 1:N
     
@@ -39,9 +41,9 @@ parfor ii = 1:N
     samp = drawSamples(smp,'Burnin',0,'NumSamples',1,'StartPoint',deltC0);
     
     delta_b(ii) = samp(1);
-    C_b_cell{ii}(1:THETA_a(Z_tmp(ii)).p) = samp(2:end);
+    C_b(ii,1:THETA_a(Z_tmp(ii)).p) = samp(2:end);
 end
 
-C_b = cell2mat(C_b_cell);
+
 
 end
