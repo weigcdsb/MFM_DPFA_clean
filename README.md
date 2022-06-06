@@ -9,10 +9,10 @@
 4. BDMCMC works well, infer (p=2) correctly (just check first 1000 iterations).
 
 // TODO:
-0. parallel computing; (done)
-1. clean the code for clustering;
-2. double check the split-merge: should change after using PG-FFBS-MH;
-3. If can easily do, write FFBS in C.
+1. parallel computing; (done)
+2. clean the code for clustering;
+3. double check the split-merge: should change after using PG-FFBS-MH;
+4. If can easily do, write FFBS in C.
 
 
  
