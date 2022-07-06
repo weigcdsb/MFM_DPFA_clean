@@ -5,7 +5,7 @@ addpath(genpath(usr_dir + "\MFM_DPFA_clean"));
 close all
 rng(2)
 n = 5;
-nClus = 2;
+nClus = 1;
 N = n*nClus;
 p = 2;
 T = 1000;
@@ -48,24 +48,25 @@ mu = mu - mean(mu,2);
 
 % let's generate lambda
 logLam = zeros(n*nClus, T);
-logLam(:,1) = delta + C_trans*X(:,1) + repelem(mu(:,1), n);
+logLam(:,1) = delta + C_trans*X(:,1) + repelem(mu(:,1), n)';
 
 
 for t=2:T
-    logLam(:, t) = delta + C_trans*X(:,t) + repelem(mu(:,t), n);
+    logLam(:, t) = delta + C_trans*X(:,t) + repelem(mu(:,t), n)';
 end
 %
 Y = poissrnd(exp(logLam));
 
 % extract data out?
-for kk=1:N
-    Y(kk,randsample(T,round(T/2))) = nan;
-end
+% for kk=1:N
+%     Y(kk,randsample(T,round(T/2))) = nan;
+% end
 
 %% pre-MCMC
 rng(1)
-ng = 1000;
-burnIn = round(ng/20);
+close all
+ng = 10000;
+burnIn = round(ng/10);
 
 p_max = 20;
 
@@ -91,7 +92,7 @@ p_trace = ones(nClus, ng);
 for k = 1:nClus
     idx_tmp = find(Lab == k);
     N_tmp = length(idx_tmp);
-    p_tmp = p_trace(k,1); 
+    p_tmp = p_trace(k,1);
     
     prior.x0 = zeros(p_tmp,1);
     prior.Q0 = eye(p_tmp);
@@ -117,45 +118,50 @@ ACC_trace = zeros(nClus, ng);
 RACC = zeros(nClus, 1);
 
 % BDMCMC
-birth_rate = .5;
-birth_time = 1;
-alpha = 2;
+birth_rate = .4;
+birth_time = 10*(1/birth_rate);
+alpha = 5;
 
 % AGS
-bdstart = 20;
+bdstart = 2;
 b0 = 0.1;
-b1 = 1e-3;
+b1 = 1e-4;
 
 %% MCMC
-poolobj = parpool('IdleTimeout',120);
+if isempty(gcp('nocreate'))
+    poolobj = parpool('IdleTimeout',120);
+end
+
+
+% initialize with Laplace approximation
+gPre = 10;
+for g = 2:gPre
+    
+    disp("g = " + g)
+    
+    % (1) update cluster parameters
+    [THETA{1}, ~] = update_clusParam_all(THETA{1}, C_fit(:,:,1),...
+        delt_fit(:,1), unique(Lab),...
+        Lab, Y, prior, R_all, true);
+    
+    % (2) update non-cluster parameters: intercept + loading (HMC)
+    [delt_fit(:,1), C_fit(:,:,1)] =...
+        update_deltC_HMC(delt_fit(:,1), C_fit(:,:,1),...
+        THETA{1},Lab,Y,prior);
+    
+    % (3) projection
+    [THETA{1},  C_fit(:,:,1), delt_fit(:,1)] = constraintProj(THETA{1},...
+         C_fit(:,:,1), delt_fit(:,1),unique(Lab), Lab);
+end
 
 tic
 for g= 2:ng
     
     % (1) update cluster parameters (PG+FFBS+MH)
+    [THETA{g}, ACC_trace(:,g)] = update_clusParam_all(THETA{g-1}, C_fit(:,:,g-1),...
+        delt_fit(:,g-1), unique(Lab),...
+        Lab, Y, prior, R_all, false);
     
-    
-    THETA_tmp_in = THETA{g-1};
-    THETA_tmp_out = THETA{g-1};
-    ACC_tmp = ACC_trace(:,g);
-    
-    parfor j = 1:nClus
-        obsIdx = find(Lab == j);
-        
-        prior_tmp = prior;
-        prior_tmp.x0 = zeros(THETA_tmp_in(j).p,1);
-        prior_tmp.Q0 = eye(THETA_tmp_in(j).p);
-        prior_tmp.muC0 = zeros(THETA_tmp_in(j).p,1);
-        prior_tmp.SigC0 = eye(THETA_tmp_in(j).p);
-        
-        [THETA_tmp_out(j), acc] = update_clusParam_PG(THETA_tmp_in(j),...
-                delt_fit(obsIdx,g-1), C_fit(obsIdx,1:THETA_tmp_in(j).p,g-1),...
-                Y(obsIdx,:),R_all(obsIdx,:),prior_tmp);
-        ACC_tmp(j) = acc;
-    end
-    
-    THETA{g} = THETA_tmp_out;
-    ACC_trace(:,g) = ACC_tmp;
     
     for j = 1:nClus
         if(g > burnIn)
@@ -169,23 +175,9 @@ for g= 2:ng
         THETA{g},Lab,Y,prior);
     
     % (3) projection
-    for j = 1:nClus
-        obsIdx = find(Lab == j);
-        N_tmp = length(obsIdx);
-        
-        % for mu
-        muBar = mean(THETA{g}(j).mu);
-        THETA{g}(j).mu = THETA{g}(j).mu - muBar;
-        THETA{g}(j).b(1) = (THETA{g}(j).A(1,1) - 1)*muBar + THETA{g}(j).b(1);
-        delt_fit(obsIdx,g) = delt_fit(obsIdx,g) + muBar*ones(N_tmp,1);
-        
-        % for X
-        XBar = mean(THETA{g}(j).X, 2);
-        THETA{g}(j).X = THETA{g}(j).X - XBar;
-        THETA{g}(j).b(2:end) = (THETA{g}(j).A(2:end,2:end) - eye(THETA{g}(j).p))*XBar +...
-            THETA{g}(j).b(2:end);
-        delt_fit(obsIdx,g) = delt_fit(obsIdx,g) + C_fit(obsIdx,1:THETA{g}(j).p,g)*XBar;
-    end
+    [THETA{g},  C_fit(:,:,g), delt_fit(:,g)] = constraintProj(THETA{g},...
+         C_fit(:,:,g), delt_fit(:,g),unique(Lab), Lab);
+    
     
     fitMFR = zeros(N, T);
     for k  = 1:N
@@ -198,105 +190,27 @@ for g= 2:ng
     
     
     % birth-death
-    
-    if g > bdstart && binornd(1, exp(-b0 - b1*g)) == 1
-        for j = 1:nClus
-            
-            t_fa = 0;
-            obsIdx = find(Lab == j);
-            N_tmp = length(obsIdx);
-            
-            
-            while(t_fa < birth_time)
-                
-                mll_del = zeros(THETA{g}(j).p,1);
-                if THETA{g}(j).p > 1
-                    for kk = 1:THETA{g}(j).p
-                        colSelect = setdiff(1:THETA{g}(j).p, kk);
-                        mll_del(kk) = poiLogMarg(reshape(Y(obsIdx,:)', [], 1),...
-                            repmat(THETA{g}(j).X(colSelect,:)', N_tmp,1),...
-                            kron(delt_fit(obsIdx,g), ones(T,1)) +...
-                            repmat(THETA{g}(j).mu', N_tmp,1));
-                    end
-                    
-                    mll_all = poiLogMarg(reshape(Y(obsIdx,:)', [], 1),...
-                        repmat(THETA{g}(j).X', N_tmp,1),...
-                        kron(delt_fit(obsIdx,g), ones(T,1)) +...
-                        repmat(THETA{g}(j).mu', N_tmp,1));
-                else
-                    for kk = 1:THETA{g}(j).p
-                        colSelect = setdiff(1:THETA{g}(j).p, kk);
-                        eta_tmp =...
-                            [ones(N_tmp,1) delt_fit(obsIdx,g) C_fit(obsIdx,colSelect,g)]*...
-                            [THETA{g}(j).mu ;ones(1,T) ;THETA{g}(j).X(colSelect,:)];
-                        mll_del(kk) = nansum(log(poisspdf(Y(obsIdx,:),exp(eta_tmp))), 'all');
-                    end
-                    
-                    eta_tmp =...
-                        [ones(N_tmp,1) delt_fit(obsIdx,g) C_fit(obsIdx,1:THETA{g}(j).p,g)]*...
-                        [THETA{g}(j).mu ;ones(1,T) ;THETA{g}(j).X];
-                    
-                    mll_all = nansum(log(poisspdf(Y(obsIdx,:),exp(eta_tmp))), 'all');
-                end
-                
-                delta_j = exp(mll_del + log(birth_rate) - mll_all - log(alpha));
-                delta_j(isinf(delta_j)) = realmax;
-                
-                delta_all = sum(delta_j);
-                s = exprnd(1/(birth_rate + delta_all));
-                t_fa = t_fa + s;
-                
-                if(binornd(1,birth_rate/(birth_rate + delta_all)) == 1)
-                    if THETA{g}(j).p < p_max
-                        % give a birth
-                        disp('birth')
-                        prior.x0 = zeros(1,1);
-                        prior.Q0 = eye(1);
-                        theta_tmp = sample_prior(prior, T, 1, false);
-                        
-                        THETA{g}(j).b = [THETA{g}(j).b; theta_tmp.b(2)];
-                        THETA{g}(j).A = diag([diag(THETA{g}(j).A);theta_tmp.A(2,2)]);
-                        THETA{g}(j).Q = diag([diag(THETA{g}(j).Q);theta_tmp.Q(2,2)]);
-                        THETA{g}(j).X = [THETA{g}(j).X; theta_tmp.X];
-                        
-                        C_fit(obsIdx,THETA{g}(j).p+1, g) = normrnd(0, ones(N_tmp, 1));
-                        THETA{g}(j).p = THETA{g}(j).p + 1;
-                    end
-                else
-                    
-                    % give a death
-                    disp('death')
-                    del_col = mnrnd(1,delta_j/delta_all);
-                    
-                    del_col_expand = [0 del_col];
-                    THETA{g}(j).b = THETA{g}(j).b(~del_col_expand);
-                    THETA{g}(j).A = THETA{g}(j).A(~del_col_expand, ~del_col_expand);
-                    THETA{g}(j).Q = THETA{g}(j).Q(~del_col_expand, ~del_col_expand);
-                    THETA{g}(j).X = THETA{g}(j).X(~del_col,:);
-                    
-                    C_tmp = 0*C_fit(obsIdx, :, g);
-                    C_tmp(:,1:(THETA{g}(j).p - 1)) = C_fit(obsIdx, ~del_col, g);
-                    C_fit(obsIdx, :, g) =  C_tmp;
-                    THETA{g}(j).p = THETA{g}(j).p - 1;
-                end
-                
-            end
-        end
+    if g > bdstart
+        [THETA{g}, C_fit(:,:,g)] = bdmcmc(THETA{g}, C_fit(:,:,g),...
+            delt_fit(:,g), birth_rate,...
+            birth_time,alpha, Y, unique(Lab), Lab, prior, p_max);
     end
     
-    p_trace(1,g) = THETA{g}(1).p;
-    p_trace(2,g) = THETA{g}(2).p;
+    
+    
+    for kk = 1:nClus
+        p_trace(kk,g) = THETA{g}(kk).p;
+    end
+    
     
     if g > bdstart
         figure(1)
-        subplot(1,2,1)
-        histogram(p_trace(1,bdstart:g))
-        xline(2, 'r--', 'Linewidth', 2)
-        title("p^{(g)} = "+p_trace(1,g))
-        subplot(1,2,2)
-        histogram(p_trace(2,bdstart:g))
-        xline(2, 'r--', 'Linewidth', 2)
-        title("p^{(g)} = "+p_trace(2,g))
+        for kk = 1:nClus
+            subplot(1,nClus,kk)
+            histogram(p_trace(kk,bdstart:g))
+            xline(2, 'r--', 'Linewidth', 2)
+            title("p^{(g)} = "+p_trace(1,g))
+        end
     end
     
     
@@ -307,17 +221,15 @@ for g= 2:ng
     hold off
     
     figure(3)
-    subplot(2,2,1)
-    plot(THETA{g}(1).mu)
-    ylabel("racc = " + RACC(1))
-    subplot(2,2,2)
-    plot(mu(1,:))
+    for kk = 1:nClus
+        subplot(1,nClus,kk)
+        hold on
+        plot(THETA{g}(kk).mu, 'k')
+        plot(mu(kk,:), 'r', 'Linewidth', 2)
+        hold off
+        ylabel("racc = " + RACC(kk))
+    end
     
-    subplot(2,2,3)
-    plot(THETA{g}(2).mu)
-    ylabel("racc = " + RACC(2))
-    subplot(2,2,4)
-    plot(mu(2,:))
     
     disp("iter " + g +": "+ toc)
 end

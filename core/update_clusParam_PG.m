@@ -70,7 +70,7 @@ for k = 1:(p+1)
         theta_b.Q(k,k) = theta_a.Q(k,k);
     end
     
-    theta_b.Q(k,k) = min(theta_b.Q(k,k), 1e-1);
+    theta_b.Q(k,k) = min(theta_b.Q(k,k), 1e-2);
     
     % (6) update b_fit & A_fit
     try
