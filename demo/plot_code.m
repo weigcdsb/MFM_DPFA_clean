@@ -36,6 +36,7 @@ end
 
 mu_trace = figure;
 plot(10:ng, muTrace(10:ng), '.')
+yline(norm(mu, 'fro'), 'r--', 'LineWidth', 2)
 title("trace for ||\mu||_2")
 xlabel("iteration")
 set(gca,'FontSize',10, 'LineWidth', 1.5,'TickDir','out')
@@ -94,7 +95,7 @@ end
 % chain 1: cosine = 0.9641
 % chain 2: cosine = 0.9686
 
-set(muFit,'PaperUnits','inches','PaperPosition',[0 0 2 2])
+set(muFit,'PaperUnits','inches','PaperPosition',[0 0 3 2])
 saveas(muFit, plotFolder + "\3_mu.svg")
 saveas(muFit, plotFolder + "\3_mu.png")
 
@@ -102,11 +103,13 @@ saveas(muFit, plotFolder + "\3_mu.png")
 % (4) p
 p_hist = figure;
 histogram(p_trace(idx))
+xline(2, 'r--', 'LineWidth', 2)
 title("histogram of p")
+xlabel('p')
 set(gca,'FontSize',10, 'LineWidth', 1.5,'TickDir','out')
 box off
 
-set(p_hist,'PaperUnits','inches','PaperPosition',[0 0 2 2])
+set(p_hist,'PaperUnits','inches','PaperPosition',[0 0 3 2])
 saveas(p_hist, plotFolder + "\4_p.svg")
 saveas(p_hist, plotFolder + "\4_p.png")
 
@@ -132,9 +135,27 @@ for kk = 1:10
     clearvars -except Z_all t_trace savedir usr_dir plotFolder_root plotFolder Y Lab ng
 end
 
+save(savedir + "\plotData.mat")
+
+
+plotFolder_root = "C:\Users\gaw19004\Documents\GitHub\MFM_DPFA_clean\plot";
+
+% savedir = "C:\Users\gaw19004\Desktop\BDMCMC_PG\unlabeled_chain2";
+% plotFolder = plotFolder_root + "\unlabeled1";
+
+% savedir = "C:\Users\gaw19004\Desktop\BDMCMC_PG\unlabeled_chain3";
+% plotFolder = plotFolder_root + "\unlabeled2";
+
+savedir = "C:\Users\gaw19004\Desktop\BDMCMC_PG\unlabeled_chain4";
+plotFolder = plotFolder_root + "\unlabeled3";
+
+
+load(savedir + "\plotData.mat")
+
+
 % (1) trace of cluster number 
 clusNum_trace = figure;
-plot(2:ng, t_trace(2:end), '.')
+plot(10:ng, t_trace(10:end), '.')
 xlabel('iteration')
 title('# of clusters')
 ylim([6 14])
@@ -182,7 +203,7 @@ usr_dir = "C:\Users\gaw19004\Documents\GitHub";
 addpath(genpath(usr_dir + "\MFM_DPFA_clean"));
 addpath(genpath(usr_dir + "\data"));
 
-% savedir = "C:\Users\gaw19004\Desktop\BDMCMC_PG\pixel_t1";
+savedir = "C:\Users\gaw19004\Desktop\BDMCMC_PG\pixel_t1";
 % savedir = "C:\Users\gaw19004\Desktop\BDMCMC_PG\pixel_t1_v2";
 % savedir = "C:\Users\gaw19004\Desktop\BDMCMC_PG\pixel_t2";
 % savedir = "C:\Users\gaw19004\Desktop\BDMCMC_PG\pixel_t2_v2";
@@ -191,20 +212,27 @@ addpath(genpath(usr_dir + "\data"));
 % savedir = "C:\Users\gaw19004\Desktop\BDMCMC_PG\pixel_t4";
 % savedir = "C:\Users\gaw19004\Desktop\BDMCMC_PG\pixel_t4_v2";
 % savedir = "C:\Users\gaw19004\Desktop\BDMCMC_PG\pixel_t5";
-savedir = "C:\Users\gaw19004\Desktop\BDMCMC_PG\pixel_t5_v2";
+% savedir = "C:\Users\gaw19004\Desktop\BDMCMC_PG\pixel_t5_v2";
 
 Z_all = [];
+fitMFR_all = [];
 
 for kk = 1:10
     load(savedir + "\file" + kk + ".mat")
     Z_all = [Z_all Z_fit];
-    clearvars -except Z_all t_trace savedir usr_dir Y Lab ng clusIdx
+    fitMFR_all = cat(3, fitMFR_all, fitMFRTrace);
+    clearvars -except Z_all t_trace savedir usr_dir Y Lab ng clusIdx fitMFR_all
 end
+
+idx = round(ng/4):ng;
+meanFR_fit = mean(fitMFR_all(:,:,idx), 3);
+clearvars fitMFR_all
 
 save(savedir + "\plotData.mat");
 % writematrix(Z_all, savedir + "\zLab.csv")
 
 
+clear all;close all;clc;
 %
 % savedir = "C:\Users\gaw19004\Desktop\BDMCMC_PG\pixel_t1";
 % savedir = "C:\Users\gaw19004\Desktop\BDMCMC_PG\pixel_t1_v2";
@@ -214,8 +242,8 @@ save(savedir + "\plotData.mat");
 % savedir = "C:\Users\gaw19004\Desktop\BDMCMC_PG\pixel_t3_v2";
 % savedir = "C:\Users\gaw19004\Desktop\BDMCMC_PG\pixel_t4";
 % savedir = "C:\Users\gaw19004\Desktop\BDMCMC_PG\pixel_t4_v2";
-% savedir = "C:\Users\gaw19004\Desktop\BDMCMC_PG\pixel_t5";
-savedir = "C:\Users\gaw19004\Desktop\BDMCMC_PG\pixel_t5_v2";
+savedir = "C:\Users\gaw19004\Desktop\BDMCMC_PG\pixel_t5";
+% savedir = "C:\Users\gaw19004\Desktop\BDMCMC_PG\pixel_t5_v2";
 
 
 % plotFolder = "C:\Users\gaw19004\Documents\GitHub\MFM_DPFA_clean\plot\pixel\t1\v1";
@@ -226,13 +254,48 @@ savedir = "C:\Users\gaw19004\Desktop\BDMCMC_PG\pixel_t5_v2";
 % plotFolder = "C:\Users\gaw19004\Documents\GitHub\MFM_DPFA_clean\plot\pixel\t3\v2";
 % plotFolder = "C:\Users\gaw19004\Documents\GitHub\MFM_DPFA_clean\plot\pixel\t4\v1";
 % plotFolder = "C:\Users\gaw19004\Documents\GitHub\MFM_DPFA_clean\plot\pixel\t4\v2";
-% plotFolder = "C:\Users\gaw19004\Documents\GitHub\MFM_DPFA_clean\plot\pixel\t5\v1";
-plotFolder = "C:\Users\gaw19004\Documents\GitHub\MFM_DPFA_clean\plot\pixel\t5\v2";
+plotFolder = "C:\Users\gaw19004\Documents\GitHub\MFM_DPFA_clean\plot\pixel\t5\v1";
+% plotFolder = "C:\Users\gaw19004\Documents\GitHub\MFM_DPFA_clean\plot\pixel\t5\v2";
 
+% t1: 9, 10
+% t2: 9, 10
+% t3: 10, 10
+% t4: 9, 9
+% t5: 10, 10
+
+cd(plotFolder)
 
 
 load(savedir + "\plotData.mat")
 zMaxPEAR = readmatrix(savedir + "\zMaxPEAR.csv");
+
+idx = round(ng/4):ng;
+
+% clusNum_trace = figure;
+% plot(10:ng, t_trace(10:ng), '.')
+% xlabel('iteration')
+% title('# of clusters')
+% set(gca,'FontSize',10, 'LineWidth', 1.5,'TickDir','out')
+% box off
+% 
+% set(clusNum_trace,'PaperUnits','inches','PaperPosition',[0 0 2 2])
+% saveas(clusNum_trace, plotFolder + "\1_trace.svg")
+% saveas(clusNum_trace, plotFolder + "\1_trace.png")
+% 
+% 
+% clusNum_hist = figure;
+% histogram(t_trace(idx))
+% xlabel('# clus')
+% title('# of clusters')
+% set(gca,'FontSize',10, 'LineWidth', 1.5,'TickDir','out')
+% box off
+% 
+% set(clusNum_hist,'PaperUnits','inches','PaperPosition',[0 0 2 2])
+% saveas(clusNum_hist, plotFolder + "\2_hist.svg")
+% saveas(clusNum_hist, plotFolder + "\2_hist.png")
+
+
+
 
 N = size(Y,1);
 zMaxPEAR = zMaxPEAR(:,2);
@@ -243,7 +306,6 @@ for k = 1:length(unique(Lab))
     id_sep(Lab == k) = sum(Lab < k) + idTmp;
 end
 
-idx = round(ng/4):ng;
 
 % simMat
 simMat = zeros(N,N);
@@ -260,10 +322,47 @@ colorbar()
 set(gca,'FontSize',9, 'LineWidth', 1.5,'TickDir','out')
 box off
 
-set(simPixel_all,'PaperUnits','inches','PaperPosition',[0 0 2 1.5])
-saveas(simPixel_all, plotFolder + "\1_simMat.svg")
-saveas(simPixel_all, plotFolder + "\1_simMat.png")
+set(simPixel_all,'PaperUnits','inches','PaperPosition',[0 0 2.5 2])
+saveas(simPixel_all, plotFolder + "\3_simMat.svg")
+saveas(simPixel_all, plotFolder + "\3_simMat.png")
 
+
+% FR_all = figure;
+% subplot(1,2,1)
+% imagesc(Y(id_all,:))
+% hold on
+% n_tmp = 0;
+% for cc = unique(zMAP_sort)'
+%     n_pre = n_tmp;
+%     n_tmp = n_tmp + sum(zMAP_sort == cc);
+%     yline(n_tmp+0.5, 'y--', 'LineWidth', 1);
+% end
+% hold off
+% colorbar()
+% cLim = caxis;
+% title('Spike Counts')
+% set(gca,'FontSize',9, 'LineWidth', 1.5,'TickDir','out')
+% box off
+% subplot(1,2,2)
+% imagesc(meanFR_fit(id_all,:))
+% hold on
+% n_tmp = 0;
+% for cc = unique(zMAP_sort)'
+%     n_pre = n_tmp;
+%     n_tmp = n_tmp + sum(zMAP_sort == cc);
+%     yline(n_tmp+0.5, 'y--', 'LineWidth', 1);
+% end
+% hold off
+% colorbar()
+% set(gca,'CLim',cLim)
+% title('fit-FR')
+% xlabel("T")
+% set(gca,'FontSize',9, 'LineWidth', 1.5,'TickDir','out')
+% box off
+% 
+% set(FR_all,'PaperUnits','inches','PaperPosition',[0 0 6 3])
+% saveas(FR_all, '4_FR_all.svg')
+% saveas(FR_all, '4_FR_all.png')
 
 
 
@@ -290,16 +389,18 @@ colorbar()
 set(gca,'FontSize',9, 'LineWidth', 1.5,'TickDir','out')
 box off
 
-set(simPixel_sorted,'PaperUnits','inches','PaperPosition',[0 0 2 1.5])
-saveas(simPixel_sorted, plotFolder + "\2_simMat.svg")
-saveas(simPixel_sorted, plotFolder + "\2_simMat.png")
+set(simPixel_sorted,'PaperUnits','inches','PaperPosition',[0 0 2.75 2])
+saveas(simPixel_sorted, plotFolder + "\5_simMat.svg")
+saveas(simPixel_sorted, plotFolder + "\5_simMat.png")
 
 %% ARI for pixel
 clear all;close all;clc
 
 plotFolder = "C:\Users\gaw19004\Documents\GitHub\MFM_DPFA_clean\plot\pixel";
 
-ARI = readmatrix("C:\Users\gaw19004\Desktop\BDMCMC_PG\ari.csv");
+% ARI = readmatrix("C:\Users\gaw19004\Desktop\BDMCMC_PG\ari.csv");
+ARI = readmatrix("C:\Users\gaw19004\Desktop\BDMCMC_PG\ariMAP.csv");
+
 ARI = ARI(:,2:end);
 
 ari_heat = figure;
@@ -319,18 +420,117 @@ set(gca,'FontSize',9, 'LineWidth', 1.5,'TickDir','out')
 box off
 
 cd(plotFolder)
-set(ari_heat,'PaperUnits','inches','PaperPosition',[0 0 4 3])
-saveas(ari_heat, 'ARI.svg')
-saveas(ari_heat, 'ARI.png')
+set(ari_heat,'PaperUnits','inches','PaperPosition',[0 0 2.75 2])
+saveas(ari_heat, 'ARIMAP.svg')
+saveas(ari_heat, 'ARIMAP.png')
+
+%%
+
+clear all;close all;clc;
+
+savedir = "C:\Users\gaw19004\Desktop\BDMCMC_PG\pixel_t1";
+plotFolder = "C:\Users\gaw19004\Documents\GitHub\MFM_DPFA_clean\plot\pixel\t1\v1";
+
+cd(plotFolder)
+
+
+load(savedir + "\plotData.mat")
+zMaxPEAR = readmatrix(savedir + "\zMAP.csv");
+
+idx = round(ng/4):ng;
+
+% clusNum_trace = figure;
+% plot(10:ng, t_trace(10:ng), '.')
+% xlabel('iteration')
+% title('# of clusters')
+% set(gca,'FontSize',10, 'LineWidth', 1.5,'TickDir','out')
+% box off
+% 
+% set(clusNum_trace,'PaperUnits','inches','PaperPosition',[0 0 2 2])
+% saveas(clusNum_trace, plotFolder + "\1_trace.svg")
+% saveas(clusNum_trace, plotFolder + "\1_trace.png")
+% 
+% 
+% clusNum_hist = figure;
+% histogram(t_trace(idx))
+% xlabel('# clus')
+% title('# of clusters')
+% set(gca,'FontSize',10, 'LineWidth', 1.5,'TickDir','out')
+% box off
+% 
+% set(clusNum_hist,'PaperUnits','inches','PaperPosition',[0 0 2 2])
+% saveas(clusNum_hist, plotFolder + "\2_hist.svg")
+% saveas(clusNum_hist, plotFolder + "\2_hist.png")
 
 
 
 
+N = size(Y,1);
+zMaxPEAR = zMaxPEAR(:,2);
+[zMAP_sort,id_all] = sort(zMaxPEAR);
+id_sep = zeros(N,1);
+for k = 1:length(unique(Lab))
+    [~, idTmp] = sort(zMaxPEAR(Lab == k,:));
+    id_sep(Lab == k) = sum(Lab < k) + idTmp;
+end
 
 
+% simMat
+simMat = zeros(N,N);
+for g = idx
+    for k = 1:size(simMat, 1)
+        simMat(k,:) = simMat(k,:) + (Z_all(k, g) == Z_all(:, g))';
+    end
+end
+
+simPixel_all = figure;
+imagesc(simMat(id_all,id_all)/length(idx))
+colormap(flipud(hot))
+colorbar()
+set(gca,'FontSize',9, 'LineWidth', 1.5,'TickDir','out')
+box off
+
+set(simPixel_all,'PaperUnits','inches','PaperPosition',[0 0 2.5 2])
+saveas(simPixel_all, plotFolder + "\6_simMatMAP.svg")
+saveas(simPixel_all, plotFolder + "\6_simMatMAP.png")
 
 
+FR_all = figure;
+subplot(1,2,1)
+imagesc(Y(id_all,:))
+hold on
+n_tmp = 0;
+for cc = unique(zMAP_sort)'
+    n_pre = n_tmp;
+    n_tmp = n_tmp + sum(zMAP_sort == cc);
+    yline(n_tmp+0.5, 'y--', 'LineWidth', 1);
+end
+hold off
+colorbar()
+cLim = caxis;
+title('Spike Counts')
+set(gca,'FontSize',9, 'LineWidth', 1.5,'TickDir','out')
+box off
+subplot(1,2,2)
+imagesc(meanFR_fit(id_all,:))
+hold on
+n_tmp = 0;
+for cc = unique(zMAP_sort)'
+    n_pre = n_tmp;
+    n_tmp = n_tmp + sum(zMAP_sort == cc);
+    yline(n_tmp+0.5, 'y--', 'LineWidth', 1);
+end
+hold off
+colorbar()
+set(gca,'CLim',cLim)
+title('fit-FR')
+xlabel("T")
+set(gca,'FontSize',9, 'LineWidth', 1.5,'TickDir','out')
+box off
 
+set(FR_all,'PaperUnits','inches','PaperPosition',[0 0 6 3])
+saveas(FR_all, '7_FR_all_MAP.svg')
+saveas(FR_all, '7_FR_all_MAP.png')
 
 
 
