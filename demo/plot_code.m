@@ -95,7 +95,8 @@ end
 % chain 1: cosine = 0.9641
 % chain 2: cosine = 0.9686
 
-set(muFit,'PaperUnits','inches','PaperPosition',[0 0 3 2])
+% set(muFit,'PaperUnits','inches','PaperPosition',[0 0 3 2])
+set(muFit,'PaperUnits','inches','PaperPosition',[0 0 2 2])
 saveas(muFit, plotFolder + "\3_mu.svg")
 saveas(muFit, plotFolder + "\3_mu.png")
 
@@ -268,6 +269,22 @@ cd(plotFolder)
 
 load(savedir + "\plotData.mat")
 zMaxPEAR = readmatrix(savedir + "\zMaxPEAR.csv");
+
+
+siteClus = [];
+for ii = 1:(N-1)
+    for jj = (ii+1):N
+        if zMaxPEAR(ii,2) == zMaxPEAR(jj,2)
+            siteClus = [siteClus Lab(ii) == Lab(jj)];
+        end
+    end 
+end
+
+mean(siteClus)
+
+
+
+
 
 idx = round(ng/4):ng;
 

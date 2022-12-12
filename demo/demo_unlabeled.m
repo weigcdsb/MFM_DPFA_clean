@@ -1,7 +1,7 @@
 usr_dir = "C:\Users\gaw19004\Documents\GitHub";
 addpath(genpath(usr_dir + "\MFM_DPFA_clean"));
 
-savedir = "C:\Users\gaw19004\Desktop\BDMCMC_PG\unlabeled_chain5";
+savedir = "C:\Users\gaw19004\Desktop\BDMCMC_PG\unlabeled_chain4";
 
 %%
 close all
@@ -188,7 +188,7 @@ for k = 1:size(simMat, 1)
 end
 
 p_trace = ones(N, iterEach);
-nRep = 1;
+nRep = 4;
 
 
 t_trace = zeros(1, ng);
